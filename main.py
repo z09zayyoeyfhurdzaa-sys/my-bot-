@@ -5,7 +5,9 @@ from telebot import types
 TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
 bot = telebot.TeleBot(TOKEN)
 
-# دالة الترحيب والأزرار الرئيسية
+# حذف أي أوامر قديمة عالقة
+bot.remove_webhook()
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -13,12 +15,9 @@ def send_welcome(message):
     btn2 = types.KeyboardButton('شحن الألعاب 🎮')
     btn3 = types.KeyboardButton('حسابي 👤')
     btn4 = types.KeyboardButton('الدعم الفني 🛠️')
-    
     markup.add(btn1, btn2, btn3, btn4)
-    
     bot.send_message(message.chat.id, "أهلاً بك في Game Card Store! اختر من القائمة:", reply_markup=markup)
 
-# التعامل مع الضغط على الأزرار
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     if message.text == 'قسم التطبيقات 📱':
@@ -26,11 +25,11 @@ def handle_buttons(message):
     elif message.text == 'شحن الألعاب 🎮':
         bot.send_message(message.chat.id, "🚀 جاري فتح قسم شحن الألعاب...")
     elif message.text == 'حسابي 👤':
-        bot.send_message(message.chat.id, f"👤 اسمك: {message.from_user.first_name}")
+        bot.send_message(message.chat.id, f"👤 اسمك: {message.from_user.first_name}\n🆔 ايديك: {message.from_user.id}")
     elif message.text == 'الدعم الفني 🛠️':
-        bot.send_message(message.chat.id, "🛠️ تواصل مع الدعم: @Support_Admin")
+        bot.send_message(message.chat.id, "🛠️ تواصل مع الدعم الفني: @Support_Admin")
 
-# تشغيل البوت
 if __name__ == "__main__":
-    # skip_pending=True سيمسح أي رسائل قديمة تسبب التكرار
+    print("Bot is working...")
+    # skip_pending=True هو السر لمنع الردود المكررة والقديمة
     bot.infinity_polling(skip_pending=True)
