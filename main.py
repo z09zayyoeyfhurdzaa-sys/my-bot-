@@ -2,11 +2,12 @@ import telebot
 from telebot import types
 
 # التوكن الخاص بك
-bot = telebot.TeleBot('8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU')
+TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
+bot = telebot.TeleBot(TOKEN)
 
+# دالة الترحيب والأزرار الرئيسية
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # إنشاء لوحة الأزرار
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     btn1 = types.KeyboardButton('قسم التطبيقات 📱')
     btn2 = types.KeyboardButton('شحن الألعاب 🎮')
@@ -17,6 +18,10 @@ def send_welcome(message):
     
     bot.send_message(message.chat.id, "أهلاً بك في Game Card Store! اختر من القائمة أدناه:", reply_markup=markup)
 
+# التعامل مع الضغط على الأزرار
 @bot.message_handler(func=lambda message: True)
-def handle_messages(message):
-    if message.
+def handle_buttons(message):
+    if message.text == 'قسم التطبيقات 📱':
+        bot.send_message(message.chat.id, "✨ جاري فتح قسم التطبيقات...")
+    elif message.text == 'شحن الألعاب 🎮':
+        bot.send_message(message.chat.id, "🚀 جاري فتح قسم ش
