@@ -10,40 +10,36 @@ def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add('قسم التطبيقات 📱', 'شحن الألعاب 🎮')
     markup.add('حسابي 👤', 'الدعم الفني 🛠️')
-    bot.send_message(message.chat.id, "أهلاً بك في Game Card Store! اختر من القائمة أدناه:", reply_markup=markup)
+    bot.send_message(message.chat.id, "أهلاً بك في متجرك! اختر من القائمة:", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     if message.text == 'قسم التطبيقات 📱':
-        apps_text = """
-📱 **قسم التطبيقات المتوفرة:**
-✅ اشتراك شاهد VIP (شهر)
-✅ اشتراك نتفليكس (شاشة واحدة)
-✅ برامج بلس للايفون
-✅ تفعيل ويندوز 10/11 أصلي
+        apps_info = """
+📱 **قائمة التطبيقات الخاصة بك:**
+✅ تطبيق (الاسم الذي حددته)
+✅ تطبيق (الاسم الذي حددته)
+✅ تطبيق (الاسم الذي حددته)
 
-💡 للطلب، تواصل مع الدعم الفني.
+💡 اطلب الآن عبر الدعم الفني.
         """
-        bot.send_message(message.chat.id, apps_text)
+        bot.send_message(message.chat.id, apps_info)
 
     elif message.text == 'شحن الألعاب 🎮':
-        games_text = """
+        games_info = """
 🎮 **قسم شحن الألعاب:**
-🔥 شحن شدات ببجي (PUBG)
-🔥 شحن جواهر فري فاير (Free Fire)
-🔥 شحن كول اوف ديوتي (CP)
-🔥 بطاقات جوجل بلاي وآيتونز
+🔥 شحن شدات ببجي
+🔥 شحن جواهر فري فاير
 
-💡 اختر اللعبة وتواصل مع الدعم للتحويل.
+💡 أرسل الآيدي الخاص بك للدعم لإتمام الشحن.
         """
-        bot.send_message(message.chat.id, games_text)
+        bot.send_message(message.chat.id, games_info)
 
     elif message.text == 'حسابي 👤':
         user_info = f"👤 اسمك: {message.from_user.first_name}\n🆔 آيديك: {message.from_user.id}"
         bot.send_message(message.chat.id, user_info)
 
     elif message.text == 'الدعم الفني 🛠️':
-        support_text = "🛠️ للتواصل مع الدعم الفني والاستفسارات:\n@Support_Admin"
-        bot.send_message(message.chat.id, support_text)
+        bot.send_message(message.chat.id, "🛠️ تواصل مع الدعم الفني: @Support_Admin")
 
 bot.infinity_polling(skip_pending=True)
