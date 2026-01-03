@@ -1,12 +1,9 @@
 import telebot
 from telebot import types
 
-# التوكن الخاص بك
+# التوكن الجديد
 TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
 bot = telebot.TeleBot(TOKEN)
-
-# حذف أي أوامر قديمة عالقة
-bot.remove_webhook()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -25,11 +22,9 @@ def handle_buttons(message):
     elif message.text == 'شحن الألعاب 🎮':
         bot.send_message(message.chat.id, "🚀 جاري فتح قسم شحن الألعاب...")
     elif message.text == 'حسابي 👤':
-        bot.send_message(message.chat.id, f"👤 اسمك: {message.from_user.first_name}\n🆔 ايديك: {message.from_user.id}")
+        bot.send_message(message.chat.id, f"👤 اسمك: {message.from_user.first_name}")
     elif message.text == 'الدعم الفني 🛠️':
-        bot.send_message(message.chat.id, "🛠️ تواصل مع الدعم الفني: @Support_Admin")
+        bot.send_message(message.chat.id, "🛠️ تواصل مع الدعم: @Support_Admin")
 
 if __name__ == "__main__":
-    print("Bot is working...")
-    # skip_pending=True هو السر لمنع الردود المكررة والقديمة
     bot.infinity_polling(skip_pending=True)
