@@ -58,7 +58,7 @@ def apps_menu(message):
 # --- شحن الرصيد ---
 @bot.message_handler(func=lambda m: m.text == "💰 شحن الرصيد")
 def recharge_start(message):
-    msg = bot.send_message(message.chat.id, f"🚀 للتحويل لمتجر Game Card Store: استخدم الرقم `{CASH_NUMBER}`\n\nبعد التحويل، أرسل هنا (المبلغ + اسم المحول) 👇")
+    msg = bot.send_message(message.chat.id, f"🚀 للتحويل لمتجر Game Card Store: استخدم الرقم `{CASH_NUMBER}`\n\nبعد التحويل، أرسل هنا (المبلغ +رقم عملية التحويل) 👇")
     bot.register_next_step_handler(msg, notify_admin_payment)
 
 def notify_admin_payment(message):
