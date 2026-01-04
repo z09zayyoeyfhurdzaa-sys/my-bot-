@@ -4,9 +4,9 @@ from datetime import datetime
 
 # --- الإعدادات الأساسية ---
 TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
-MY_ID = 1767254345  
-CASH_NUMBER = "0994601295" 
-RATE = 15000  
+MY_ID =7557584016
+CASH_NUMBER = "62154433" 
+RATE = 12000  
 
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=20)
 
