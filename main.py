@@ -7,7 +7,7 @@ ADMIN_ID = 7557584016
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
 # --- الإعدادات ---
-settings = {"rate": 15000, "cash_num": "0994601295"}
+settings = {"rate": 12000, "cash_num": "0994601295"}
 balances = {}  # الرصيد بالليرة
 join_dates = {}  # تاريخ الانضمام
 user_steps = {}
