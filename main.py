@@ -1,140 +1,119 @@
 import telebot
 from telebot import types
-from datetime import datetime
+import sqlite3
 
-# --- الإعدادات النهائية المعتمدة ---
+# --- الإعدادات ---
 TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
-MY_ID = 7557584016  # آيدي المطور أحمد عيسى الخاص بك
-CHANNEL_ID = "@Game1stor"  # يوزر قناتك الرسمية
-CASH_NUMBER = "0994601295" 
-RATE = 15000  
+MY_ID = 7557584016
+CHANNEL_ID = "@Game1stor"
+RATE = 15000
+CASH_NUMBER = "0994601295"
 
-bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=20)
+bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=40)
 
-# ذاكرة الأرصدة والسجلات
-user_balances = {} 
-user_orders = {} 
+# --- نظام قاعدة البيانات (لضمان الدقة المطلقة) ---
+def init_db():
+    conn = sqlite3.connect('store.db')
+    c = conn.cursor()
+    c.execute('CREATE TABLE IF NOT EXISTS users (uid INTEGER PRIMARY KEY, balance INTEGER DEFAULT 0)')
+    conn.commit()
+    conn.close()
 
-# --- القوائم والبيانات ---
-GAMES_DATA = {
-    "شدات ببجي 🔫": {"60 شدة": 1.0, "325 شدة": 5.0, "660 شدة": 10.0},
-    "جواهر فري فاير 💎": {"100 جوهرة": 1.0, "210 جوهرة": 2.0, "530 جوهرة": 5.0},
-    "كلاش أوف كلانس 🏰": {"88 جوهرة": 1.2, "550 جوهرة": 6.0, "1200 جوهرة": 11.0}
-}
+def get_bal(uid):
+    conn = sqlite3.connect('store.db')
+    c = conn.cursor()
+    c.execute('SELECT balance FROM users WHERE uid = ?', (uid,))
+    res = c.fetchone()
+    conn.close()
+    return res[0] if res else 0
 
-APPS_DATA = {
-    "Cocco live": 1.5, "بيغو لايف": 2, "Hiya chat": 1.2, "سوجو لايف": 1,
-    "Likee": 2, "Ligo live": 1.5, "نتفليكس 🍿": 3.0, "شاهد VIP 🎬": 2.5
-}
+def update_bal(uid, amt):
+    conn = sqlite3.connect('store.db')
+    c = conn.cursor()
+    c.execute('INSERT OR IGNORE INTO users (uid, balance) VALUES (?, 0)', (uid,))
+    c.execute('UPDATE users SET balance = balance + ? WHERE uid = ?', (amt, uid))
+    conn.commit()
+    conn.close()
 
-# دالة فحص الاشتراك في القناة
-def check_sub(uid):
-    try:
-        member = bot.get_chat_member(CHANNEL_ID, uid)
-        return member.status in ['member', 'administrator', 'creator']
-    except:
-        return True 
+# --- القوائم الحيوية (Markups) ---
+def main_menu():
+    mk = types.InlineKeyboardMarkup(row_width=2)
+    mk.add(
+        types.InlineKeyboardButton("🎮 الألعاب", callback_data="cat_games"),
+        types.InlineKeyboardButton("📱 التطبيقات", callback_data="cat_apps"),
+        types.InlineKeyboardButton("💰 شحن رصيد", callback_data="recharge"),
+        types.InlineKeyboardButton("👤 حسابي", callback_data="profile"),
+        types.InlineKeyboardButton("📜 الدعم والقناة", url=f"https://t.me/{CHANNEL_ID[1:]}")
+    )
+    return mk
 
+# --- المعالجات ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    uid = message.chat.id
-    if not check_sub(uid):
-        mk = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("📢 انضم للقناة الرسمية", url=f"https://t.me/Game1stor"))
-        bot.send_message(uid, "يا أهلاً بك! لضمان عمل الخدمة، يرجى الاشتراك في قناة المتجر أولاً، ثم أرسل /start مجدداً! ✨", reply_markup=mk)
-        return
+    init_db()
+    bot.send_message(message.chat.id, "💎 **مرحباً بك في متجرنا المتطور**\nاستخدم الأزرار للتنقل السريع:", 
+                     reply_markup=main_menu(), parse_mode="Markdown")
 
-    mk = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    mk.add("🎮 تسوق الألعاب", "📱 قسم التطبيقات", "💰 شحن الرصيد", "👤 ملفي الشخصي", "📜 سجل طلباتي")
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    uid = call.message.chat.id
     
-    welcome = f"مرحباً بك في **Game Card Store**! 🚀\nيسعدنا خدمتك يا {message.from_user.first_name}. تفضل بالاختيار:"
-    bot.send_message(uid, welcome, reply_markup=mk, parse_mode="Markdown")
+    if call.data == "profile":
+        bal = get_bal(uid)
+        bot.answer_callback_query(call.id, f"رصيدك الحالي: {bal:,} SYP", show_alert=True)
 
-# --- الأقسام ---
-@bot.message_handler(func=lambda m: m.text == "🎮 تسوق الألعاب")
-def games_menu(message):
-    mk = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    for game in GAMES_DATA.keys(): mk.add(game)
-    mk.add("🔙 العودة للرئيسية")
-    bot.send_message(message.chat.id, "اختر اللعبة المطلوبة: 🕹️", reply_markup=mk)
+    elif call.data == "cat_games":
+        mk = types.InlineKeyboardMarkup()
+        mk.add(types.InlineKeyboardButton("🔫 PUBG UC", callback_data="prod_pubg"))
+        mk.add(types.InlineKeyboardButton("🔙 عودة", callback_data="back_main"))
+        bot.edit_message_text("اختر القسم المطلوب:", uid, call.message.message_id, reply_markup=mk)
 
-@bot.message_handler(func=lambda m: m.text == "📱 قسم التطبيقات")
-def apps_menu(message):
-    mk = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    for app in APPS_DATA.keys(): mk.add(app)
-    mk.add("🔙 العودة للرئيسية")
-    bot.send_message(message.chat.id, "اختر التطبيق المطلوب: 📱", reply_markup=mk)
+    elif call.data == "prod_pubg":
+        mk = types.InlineKeyboardMarkup()
+        packs = {"60 UC": 1, "325 UC": 5} # USD
+        for name, usd in packs.items():
+            price = int(usd * RATE)
+            mk.add(types.InlineKeyboardButton(f"{name} - {price:,} SYP", callback_data=f"buy_{price}_PUBG"))
+        bot.edit_message_text("اختر الكمية:", uid, call.message.message_id, reply_markup=mk)
 
-@bot.message_handler(func=lambda m: m.text == "💰 شحن الرصيد")
-def recharge_start(message):
-    msg = bot.send_message(message.chat.id, f"🚀 للتحويل: استخدم الرقم `{CASH_NUMBER}`\nبعد التحويل، أرسل (المبلغ + اسم المحول) هنا 👇")
-    bot.register_next_step_handler(msg, notify_admin_payment)
+    elif call.data.startswith("buy_"):
+        price = int(call.data.split("_")[1])
+        if get_bal(uid) < price:
+            bot.answer_callback_query(call.id, "❌ رصيدك غير كافٍ!", show_alert=True)
+        else:
+            msg = bot.send_message(uid, "📝 أرسل الآن الـ ID الخاص بك:")
+            bot.register_next_step_handler(msg, finalize_order, price)
 
-def notify_admin_payment(message):
+    elif call.data == "recharge":
+        bot.send_message(uid, f"💳 رقم التحويل: `{CASH_NUMBER}`\nأرسل قيمة المبلغ واسمك.")
+        bot.register_next_step_handler(call.message, notify_admin)
+
+    elif call.data == "back_main":
+        bot.edit_message_text("القائمة الرئيسية:", uid, call.message.message_id, reply_markup=main_menu())
+
+# --- وظائف الإدارة والتنفيذ ---
+def finalize_order(message, price):
     uid = message.chat.id
-    mk = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton("✅ موافقة", callback_data=f"re_ok_{uid}"),
-        types.InlineKeyboardButton("❌ رفض", callback_data=f"re_no_{uid}")
-    )
-    bot.send_message(MY_ID, f"🔔 طلب شحن رصيد:\n👤 {message.from_user.first_name}\n🆔 `{uid}`\n📝 {message.text}", reply_markup=mk)
-    bot.send_message(uid, "⏳ تم إرسال طلبك للمراجعة.")
+    player_id = message.text
+    update_bal(uid, -price) # خصم فوري
+    bot.send_message(MY_ID, f"🛒 **طلب جديد**\nID: `{player_id}`\nالسعر: {price}\nالمستخدم: {uid}")
+    bot.send_message(uid, "✅ تم استلام طلبك! سيتم الشحن خلال دقائق.")
 
-@bot.message_handler(func=lambda m: m.text in GAMES_DATA)
-def show_game_packs(message):
-    game = message.text
-    mk = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    for pack, p_usd in GAMES_DATA[game].items():
-        mk.add(f"{pack} | {int(p_usd*RATE):,} SYP")
-    mk.add("🔙 العودة للرئيسية")
-    bot.send_message(message.chat.id, f"عروض {game}: ✨", reply_markup=mk)
+def notify_admin(message):
+    bot.forward_message(MY_ID, message.chat.id, message.message_id)
+    bot.send_message(MY_ID, f"🔔 طلب شحن من `{message.chat.id}`\nللإضافة أرسل: `/add {message.chat.id} المبلغ`")
+    bot.send_message(message.chat.id, "⏳ طلبك قيد المراجعة.")
 
-@bot.message_handler(func=lambda m: " | " in m.text and "SYP" in m.text)
-def handle_buy(message):
-    data = message.text.split(" | ")
-    item = data[0]
-    price = int(data[1].replace(",", "").replace(" SYP", ""))
-    uid = message.chat.id
-    
-    if user_balances.get(uid, 0) < price:
-        bot.send_message(uid, "❌ رصيدك لا يكفي! اشحن رصيدك أولاً.")
-        return
+@bot.message_handler(commands=['add'], func=lambda m: m.from_user.id == MY_ID)
+def add_balance_admin(message):
+    try:
+        parts = message.text.split()
+        target_uid, amount = int(parts[1]), int(parts[2])
+        update_bal(target_uid, amount)
+        bot.send_message(target_uid, f"✅ تم إضافة {amount:,} SYP لرصيدك!")
+        bot.reply_to(message, "تمت الإضافة بنجاح.")
+    except:
+        bot.reply_to(message, "خطأ! الصيغة: /add [ID] [المبلغ]")
 
-    user_balances[uid] -= price
-    msg = bot.send_message(uid, f"✅ تم حجز {price:,} SYP. أرسل الآن الآيدي (ID) المطلوب شحنه:")
-    bot.register_next_step_handler(msg, send_to_admin_order, item, price)
-
-def send_to_admin_order(message, item, price):
-    p_id, uid = message.text, message.chat.id
-    mk = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton("✅ تم الشحن", callback_data=f"ord_ok_{uid}"),
-        types.InlineKeyboardButton("❌ رفض وإرجاع", callback_data=f"ord_no_{uid}_{price}")
-    )
-    bot.send_message(MY_ID, f"🛒 طلب جديد:\n👤 {message.from_user.first_name}\n📦 {item}\n🆔 `{p_id}`", reply_markup=mk)
-    bot.send_message(uid, "🚀 وصل طلبك! سيتم التنفيذ فوراً.")
-
-@bot.callback_query_handler(func=lambda c: True)
-def admin_callbacks(call):
-    d = call.data.split("_")
-    uid = int(d[2])
-    if d[0] == "re" and d[1] == "ok":
-        msg = bot.send_message(MY_ID, f"أدخل المبلغ المضاف لـ {uid}:")
-        bot.register_next_step_handler(msg, finalize_cash, uid)
-    elif d[0] == "ord" and d[1] == "ok":
-        bot.send_message(uid, "✅ تم الشحن بنجاح! 🎉")
-        bot.edit_message_text(f"{call.message.text}\n\n✅ تم", MY_ID, call.message.message_id)
-
-def finalize_cash(message, uid):
-    amt = int(message.text)
-    user_balances[uid] = user_balances.get(uid, 0) + amt
-    bot.send_message(uid, f"✅ تم إضافة {amt:,} SYP لرصيدك!")
-    bot.send_message(MY_ID, "✅ تم.")
-
-@bot.message_handler(func=lambda m: m.text == "👤 ملفي الشخصي")
-def profile(message):
-    bal = user_balances.get(message.chat.id, 0)
-    bot.send_message(message.chat.id, f"👤 **ملفك الشخصي:**\n🆔 `{message.chat.id}`\n💳 الرصيد: {bal:,} SYP", parse_mode="Markdown")
-
-@bot.message_handler(func=lambda m: m.text == "🔙 العودة للرئيسية")
-def back(message): start(message)
-
-bot.infinity_polling(skip_pending=True)
-
+init_db()
+bot.infinity_polling()
