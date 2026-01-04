@@ -10,72 +10,56 @@ RATE = 15000
 bot = telebot.TeleBot(TOKEN)
 user_balances = {} 
 
-# --- القوائم ---
-APPS_DATA = {
-    "Cocco live": 1.5, "بيغو لايف": 2, "Hiya chat": 1.2, "سوجو لايف": 1,
-    "Likee": 2, "Ligo live": 1.5, "4 Fun chat": 1.8, "اوهلا شات": 2.5,
-    "Yoyo chat": 1.5, "Yigo chat": 1.2, "salam chat": 2, "Tada chat": 1.5,
-    "HAWA CHAT": 2.2, "BINMO CHAT": 1.8, "LAYLA CHAT": 1.5, "MIGO LIVE": 2,
-    "kwai": 1.2, "SUPER LIVE": 3, "Ayome chat": 1.5, "يوهو شات": 2,
-    "Pota live": 1.8, "DITTO LIVE": 2.5
+# --- القوائم والكميات ---
+GAMES_PACKS = {
+    "شدات ببجي 🔫": ["60 شدة", "325 شدة", "660 شدة"],
+    "جواهر فري فاير 💎": ["100 جوهرة", "210 جوهرة", "530 جوهرة"]
 }
 
-GAMES_DATA = ["شدات ببجي 🔫", "جواهر فري فاير 💎", "كول اوف ديوتي 🎖"]
+APPS_DATA = ["Cocco live", "بيغو لايف", "Hiya chat", "سوجو لايف"] # يمكنك إكمال القائمة
 
 @bot.message_handler(commands=['start'])
 def start(message):
     mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
     mk.add("🎮 قسم الألعاب", "📱 قسم التطبيقات")
     mk.add("💰 شحن رصيدي", "👤 حسابي")
-    bot.send_message(message.chat.id, f"✅ تم التحديث! الصرف الحالي: {RATE:,}", reply_markup=mk)
+    bot.send_message(message.chat.id, "✅ اختر القسم المطلوب:", reply_markup=mk)
 
-# --- حل مشكلة "رسالة جاري الفتح" عبر عرض الأزرار مباشرة ---
-@bot.message_handler(func=lambda m: m.text == "📱 قسم التطبيقات")
-def apps(message):
-    mk = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    buttons = [types.KeyboardButton(app) for app in APPS_DATA.keys()]
-    mk.add(*buttons)
-    mk.add("🔙 الرجوع")
-    bot.send_message(message.chat.id, "اختر التطبيق المطلوب:", reply_markup=mk)
-
+# --- عرض الألعاب ---
 @bot.message_handler(func=lambda m: m.text == "🎮 قسم الألعاب")
-def games(message):
+def games_menu(message):
     mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = [types.KeyboardButton(game) for game in GAMES_DATA]
-    mk.add(*buttons)
+    for game in GAMES_PACKS.keys():
+        mk.add(game)
     mk.add("🔙 الرجوع")
-    bot.send_message(message.chat.id, "اختر اللعبة المطلوبة:", reply_markup=mk)
+    bot.send_message(message.chat.id, "اختر اللعبة:", reply_markup=mk)
+
+# --- عرض الكميات بعد اختيار اللعبة ---
+@bot.message_handler(func=lambda m: m.text in GAMES_PACKS)
+def show_packs(message):
+    game_name = message.text
+    mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for pack in GAMES_PACKS[game_name]:
+        mk.add(pack)
+    mk.add("🔙 الرجوع")
+    bot.send_message(message.chat.id, f"اختر الكمية المطلوبة لـ {game_name}:", reply_markup=mk)
+
+# --- طلب الآيدي بعد اختيار الكمية ---
+@bot.message_handler(func=lambda m: any(m.text in packs for packs in GAMES_PACKS.values()))
+def ask_id(message):
+    selected_pack = message.text
+    msg = bot.send_message(message.chat.id, f"لقد اخترت {selected_pack}.\nالآن أرسل **الآيدي (ID)** الخاص بك لإتمام الطلب:")
+    bot.register_next_step_handler(msg, process_order, selected_pack)
+
+def process_order(message, pack):
+    user_id_game = message.text
+    # إرسال الطلب لك كصاحب متجر
+    bot.send_message(MY_ID, f"🔔 طلب جديد:\n👤 {message.from_user.first_name}\n📦 المنتج: {pack}\n🆔 آيدي اللاعب: `{user_id_game}`")
+    bot.send_message(message.chat.id, "✅ تم استلام طلبك بنجاح! سيتم التنفيذ قريباً.")
 
 @bot.message_handler(func=lambda m: m.text == "🔙 الرجوع")
 def back(message):
     start(message)
 
-# --- معالجة الطلبات ---
-@bot.message_handler(func=lambda m: m.text in APPS_DATA or m.text in GAMES_DATA)
-def order(message):
-    item = message.text
-    if item in APPS_DATA:
-        price = int(APPS_DATA[item] * RATE)
-        text = f"📌 {item}\n💰 السعر: {price:,} ل.س\n\nأرسل الآيدي الخاص بك للطلب:"
-    else:
-        text = f"📌 {item}\nيرجى إرسال الآيدي والكمية المطلوبة للدعم."
-    bot.send_message(message.chat.id, text)
-
-# --- بقية نظام الشحن ---
-@bot.message_handler(func=lambda m: m.text == "💰 شحن رصيدي")
-def recharge(message):
-    msg = bot.send_message(message.chat.id, f"🚀 حول للرقم `{CASH_NUMBER}`\nثم أرسل (المبلغ - رقم العملية) هنا:")
-    bot.register_next_step_handler(msg, to_admin)
-
-def to_admin(message):
-    bot.send_message(MY_ID, f"🔔 طلب جديد:\n👤 {message.from_user.first_name}\n📝 {message.text}")
-    bot.send_message(message.chat.id, "⏳ تم الإرسال للمراجعة.")
-
-@bot.message_handler(func=lambda m: m.text == "👤 حسابي")
-def info(message):
-    bal = user_balances.get(message.chat.id, 0)
-    bot.send_message(message.chat.id, f"🆔 حسابك: `{message.chat.id}`\n💳 الرصيد: {bal:,} ل.س")
-
 bot.remove_webhook()
 bot.infinity_polling(skip_pending=True)
-
