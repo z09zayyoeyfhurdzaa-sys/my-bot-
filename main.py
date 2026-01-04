@@ -6,7 +6,7 @@ TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
 ADMIN_ID = 7557584016
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-settings = {"rate": 15000, "cash_number": "0994601295"}
+settings = {"rate": 12000, "cash_number": "0994601295"}
 balances = {}
 user_steps = {}
 
