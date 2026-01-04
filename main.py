@@ -3,63 +3,84 @@ from telebot import types
 
 # --- الإعدادات ---
 TOKEN = '8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU'
-MY_ID = 1767254345  
-CASH_NUMBER = "0994601295" 
-RATE = 15000  
-
+MY_ID = 1767254345  # آيدي حسابك لتلقي الطلبات
 bot = telebot.TeleBot(TOKEN)
-user_balances = {} 
 
-# --- القوائم والكميات ---
+# --- بيانات الألعاب والكميات ---
 GAMES_PACKS = {
     "شدات ببجي 🔫": ["60 شدة", "325 شدة", "660 شدة"],
     "جواهر فري فاير 💎": ["100 جوهرة", "210 جوهرة", "530 جوهرة"]
 }
 
-APPS_DATA = ["Cocco live", "بيغو لايف", "Hiya chat", "سوجو لايف"] # يمكنك إكمال القائمة
-
 @bot.message_handler(commands=['start'])
 def start(message):
     mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
     mk.add("🎮 قسم الألعاب", "📱 قسم التطبيقات")
-    mk.add("💰 شحن رصيدي", "👤 حسابي")
-    bot.send_message(message.chat.id, "✅ اختر القسم المطلوب:", reply_markup=mk)
+    mk.add("👤 حسابي", "🛠️ الدعم الفني")
+    bot.send_message(message.chat.id, "✅ أهلاً بك! اختر القسم المطلوب:", reply_markup=mk)
 
-# --- عرض الألعاب ---
+# --- عرض الألعاب والكميات ---
 @bot.message_handler(func=lambda m: m.text == "🎮 قسم الألعاب")
 def games_menu(message):
     mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for game in GAMES_PACKS.keys():
-        mk.add(game)
+    for game in GAMES_PACKS.keys(): mk.add(game)
     mk.add("🔙 الرجوع")
     bot.send_message(message.chat.id, "اختر اللعبة:", reply_markup=mk)
 
-# --- عرض الكميات بعد اختيار اللعبة ---
 @bot.message_handler(func=lambda m: m.text in GAMES_PACKS)
 def show_packs(message):
     game_name = message.text
     mk = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for pack in GAMES_PACKS[game_name]:
-        mk.add(pack)
+    for pack in GAMES_PACKS[game_name]: mk.add(pack)
     mk.add("🔙 الرجوع")
-    bot.send_message(message.chat.id, f"اختر الكمية المطلوبة لـ {game_name}:", reply_markup=mk)
+    bot.send_message(message.chat.id, f"اختر الكمية لـ {game_name}:", reply_markup=mk)
 
-# --- طلب الآيدي بعد اختيار الكمية ---
+# --- طلب الآيدي ثم إرسال الطلب للإدارة ---
 @bot.message_handler(func=lambda m: any(m.text in packs for packs in GAMES_PACKS.values()))
 def ask_id(message):
     selected_pack = message.text
-    msg = bot.send_message(message.chat.id, f"لقد اخترت {selected_pack}.\nالآن أرسل **الآيدي (ID)** الخاص بك لإتمام الطلب:")
-    bot.register_next_step_handler(msg, process_order, selected_pack)
+    # تحديد اسم اللعبة بناءً على الكمية المختارة
+    game_name = next(g for g, p in GAMES_PACKS.items() if selected_pack in p)
+    msg = bot.send_message(message.chat.id, f"أرسل الآن **الآيدي (ID)** الخاص باللاعب لطلب {selected_pack}:")
+    bot.register_next_step_handler(msg, send_to_admin, game_name, selected_pack)
 
-def process_order(message, pack):
-    user_id_game = message.text
-    # إرسال الطلب لك كصاحب متجر
-    bot.send_message(MY_ID, f"🔔 طلب جديد:\n👤 {message.from_user.first_name}\n📦 المنتج: {pack}\n🆔 آيدي اللاعب: `{user_id_game}`")
-    bot.send_message(message.chat.id, "✅ تم استلام طلبك بنجاح! سيتم التنفيذ قريباً.")
+def send_to_admin(message, game, pack):
+    player_id = message.text
+    user_chat_id = message.chat.id
+    user_name = message.from_user.first_name
+
+    # إنشاء أزرار القبول والرفض للإدارة
+    mk = types.InlineKeyboardMarkup()
+    mk.add(types.InlineKeyboardButton("✅ موافقة", callback_data=f"accept_{user_chat_id}"),
+           types.InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user_chat_id}"))
+
+    admin_msg = f"""
+🔔 **طلب شحن جديد:**
+━━━━━━━━━━━━━
+👤 **صاحب الطلب:** {user_name}
+🆔 **آيدي حساب البوت:** `{user_chat_id}`
+🎮 **اللعبة:** {game}
+📦 **الكمية:** {pack}
+🆔 **آيدي اللاعب:** `{player_id}`
+━━━━━━━━━━━━━
+    """
+    bot.send_message(MY_ID, admin_msg, reply_markup=mk, parse_mode="Markdown")
+    bot.send_message(user_chat_id, "⏳ تم إرسال طلبك للإدارة، يرجى الانتظار للموافقة.")
+
+# --- معالجة قرار الإدارة (قبول/رفض) ---
+@bot.callback_query_handler(func=lambda c: c.data.startswith(("accept_", "reject_")))
+def admin_decision(call):
+    target_user_id = int(call.data.split("_")[1])
+    
+    if "accept" in call.data:
+        bot.send_message(target_user_id, "✅ تم قبول طلبك وشحن حسابك بنجاح! شكراً لتعاملك معنا.")
+        bot.edit_message_text(f"{call.message.text}\n\n✅ **تمت الموافقة بنجاح**", MY_ID, call.message.message_id)
+    else:
+        bot.send_message(target_user_id, "❌ نعتذر منك، تم رفض طلب الشحن الخاص بك.")
+        bot.edit_message_text(f"{call.message.text}\n\n❌ **تم الرفض**", MY_ID, call.message.message_id)
 
 @bot.message_handler(func=lambda m: m.text == "🔙 الرجوع")
-def back(message):
-    start(message)
+def back(message): start(message)
 
 bot.remove_webhook()
 bot.infinity_polling(skip_pending=True)
