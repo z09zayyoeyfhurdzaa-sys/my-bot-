@@ -2,16 +2,18 @@ import telebot
 from telebot import types
 from datetime import datetime
 
-# يرجى تغيير التوكن فوراً من BotFather للأمان
-TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
+# ⚠️ غيّر التوكن فوراً
+TOKEN = "PUT_YOUR_TOKEN_HERE"
 ADMIN_ID = 7557584016
+
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# --- الإعدادات ---
+# --- البيانات ---
 settings = {"rate": 12000, "cash_num": "0994601295"}
-balances = {}  
-join_dates = {}  
+balances = {}
+join_dates = {}
 user_steps = {}
+transfer_ids = {}
 
 GAMES = {
     "شدات ببجي 🔫": {"60 شدة": 1.0, "325 شدة": 5.0, "660 شدة": 10.0},
@@ -20,8 +22,11 @@ GAMES = {
 APPS = {"نتفليكس 🍿": 3.0, "شاهد VIP 🎬": 2.5, "بيغو لايف": 2.0}
 
 # --- الأزرار ---
-def main_kb(): return types.ReplyKeyboardMarkup(resize_keyboard=True).add("/start")
-def back_kb(): return types.ReplyKeyboardMarkup(resize_keyboard=True).add("🔙 رجوع")
+def main_kb():
+    return types.ReplyKeyboardMarkup(resize_keyboard=True).add("/start")
+
+def back_kb():
+    return types.ReplyKeyboardMarkup(resize_keyboard=True).add("🔙 رجوع")
 
 def main_inline(uid):
     kb = types.InlineKeyboardMarkup(row_width=2)
@@ -33,122 +38,118 @@ def main_inline(uid):
     )
     if uid == ADMIN_ID:
         kb.add(types.InlineKeyboardButton("⚙️ كشف الأرصدة", callback_data="admin_view_balances"))
-        kb.add(types.InlineKeyboardButton("💸 شحن يدوي", callback_data="admin_add_balance"))
     return kb
 
+# --- بدء ---
 @bot.message_handler(commands=["start"])
 @bot.message_handler(func=lambda m: m.text == "🔙 رجوع")
 def start_cmd(message):
     uid = message.chat.id
+
     balances.setdefault(uid, 0)
+    join_dates.setdefault(uid, datetime.now().strftime("%Y-%m-%d"))
     user_steps.pop(uid, None)
+
     bot.send_message(uid, "✨ أهلاً بك في المتجر:", reply_markup=main_kb())
     bot.send_message(uid, "القائمة الرئيسية:", reply_markup=main_inline(uid))
 
+# --- أزرار ---
 @bot.callback_query_handler(func=lambda call: True)
-def handle_all_callbacks(call):
+def handle_callbacks(call):
     uid = call.message.chat.id
     data = call.data
 
-    if data == "open_games":
-        kb = types.InlineKeyboardMarkup()
-        for g in GAMES:
-            kb.add(types.InlineKeyboardButton(g, callback_data=f"select_game:{g.replace(':','|')}"))
-        bot.edit_message_text("🕹️ اختر اللعبة:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
-
-    elif data == "open_apps":
-        kb = types.InlineKeyboardMarkup()
-        for a, u in APPS.items():
-            price = int(u * settings["rate"])
-            kb.add(types.InlineKeyboardButton(f"{a} • {price:,} SYP", callback_data=f"confirm_buy:{a.replace(':','|')}:{price}"))
-        bot.edit_message_text("📱 اختر التطبيق:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
+    if data == "open_profile":
+        u = call.from_user
+        text = (
+            f"👤 الاسم: {u.first_name}\n"
+            f"🆔 الآيدي: `{uid}`\n"
+            f"📅 تاريخ الانضمام: {join_dates.get(uid)}\n"
+            f"💰 الرصيد: {balances.get(uid, 0):,} ل.س"
+        )
+        bot.send_message(uid, text, parse_mode="Markdown")
 
     elif data == "open_recharge":
-        user_steps[uid] = {"step": "step_recharge"}
-        bot.send_message(uid, f"💰 رقم الكاش: `{settings['cash_num']}`\nأرسل صورة التحويل الآن:", reply_markup=back_kb())
+        user_steps[uid] = {"step": "wait_transfer"}
+        bot.send_message(
+            uid,
+            f"💰 رقم الكاش: `{settings['cash_num']}`\n"
+            f"📸 أرسل صورة التحويل + رقم العملية:",
+            reply_markup=back_kb(),
+            parse_mode="Markdown"
+        )
 
-    elif data == "open_profile":
-        bal = balances.get(uid, 0)
-        bot.answer_callback_query(call.id, f"💰 رصيدك: {bal:,} SYP", show_alert=True)
+    elif data == "admin_view_balances" and uid == ADMIN_ID:
+        text = "📋 الأرصدة:\n"
+        for u, b in balances.items():
+            if b > 0:
+                text += f"`{u}` ➜ {b:,}\n"
+        bot.send_message(ADMIN_ID, text or "لا يوجد أرصدة.", parse_mode="Markdown")
 
-    # --- تأكيد الشراء ---
-    elif data.startswith("confirm_buy:"):
-        _, item, price = data.split(":", 2)
-        price = int(price)
-        if balances.get(uid, 0) < price:
-            bot.answer_callback_query(call.id, "❌ رصيدك لا يكفي!", show_alert=True)
-        else:
-            kb = types.InlineKeyboardMarkup().add(
-                types.InlineKeyboardButton("✅ نعم، شراء", callback_data=f"buy_now:{item}:{price}"),
-                types.InlineKeyboardButton("❌ إلغاء", callback_data="open_profile")
-            )
-            bot.edit_message_text(f"هل أنت متأكد من شراء {item.replace('|',':')} بسعر {price:,} SYP؟", 
-                                 chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
-
-    elif data.startswith("buy_now:"):
-        _, item, price = data.split(":", 2)
-        user_steps[uid] = {"step": "get_id", "item": item.replace('|',':'), "price": int(price)}
-        bot.send_message(uid, "🆔 أرسل ID اللاعب أو الرقم المطلوب التعبئة له:", reply_markup=back_kb())
-
-    # --- إدارة الأدمن ---
     elif data.startswith("adm_ok:"):
         target = int(data.split(":")[1])
-        user_steps[ADMIN_ID] = {"step": "adm_amt", "target": target}
-        bot.send_message(ADMIN_ID, f"✅ أرسل المبلغ لإضافته لـ `{target}`:")
+        user_steps[ADMIN_ID] = {"step": "ok_reason", "target": target}
+        bot.send_message(ADMIN_ID, "✍️ اكتب سبب القبول:")
 
     elif data.startswith("adm_no:"):
         target = int(data.split(":")[1])
-        user_steps[ADMIN_ID] = {"step": "adm_rej", "target": target}
-        bot.send_message(ADMIN_ID, f"❌ أرسل سبب الرفض لـ `{target}`:")
+        user_steps[ADMIN_ID] = {"step": "rej_reason", "target": target}
+        bot.send_message(ADMIN_ID, "✍️ اكتب سبب الرفض:")
 
-    elif data == "admin_view_balances" and uid == ADMIN_ID:
-        text = "📋 الأرصدة:\n" + "\n".join([f"`{u}`: {b:,}" for u, b in balances.items() if b > 0])
-        bot.send_message(ADMIN_ID, text or "لا يوجد أرصدة.")
-
-    elif data.startswith("select_game:"):
-        game = data.split(":", 1)[1].replace("|", ":")
-        kb = types.InlineKeyboardMarkup()
-        for p, u in GAMES[game].items():
-            price = int(u * settings["rate"])
-            kb.add(types.InlineKeyboardButton(f"{p} • {price:,} SYP", callback_data=f"confirm_buy:{p.replace(':','|')}:{price}"))
-        bot.edit_message_text(f"عروض {game}:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
-
-@bot.message_handler(func=lambda m: True, content_types=['text', 'photo'])
-def handle_steps(msg):
+# --- الرسائل ---
+@bot.message_handler(content_types=["text", "photo"])
+def handle_messages(msg):
     uid = msg.chat.id
-    if uid not in user_steps: return
+    if uid not in user_steps:
+        return
+
     step = user_steps[uid]
 
-    if uid == ADMIN_ID:
-        if step.get("step") == "adm_amt":
-            try:
-                amt = int(msg.text)
-                balances[step['target']] = balances.get(step['target'], 0) + amt
-                bot.send_message(step['target'], f"✅ تم شحن {amt:,} SYP لحسابك.")
-                bot.send_message(ADMIN_ID, "✅ تمت الإضافة.")
-                user_steps.pop(uid)
-            except: bot.send_message(ADMIN_ID, "⚠️ أرقام فقط.")
-            return
-        elif step.get("step") == "adm_rej":
-            bot.send_message(step['target'], f"❌ رُفض طلبك.\nالسبب: {msg.text}")
-            bot.send_message(ADMIN_ID, "✅ تم إرسال الرفض.")
-            user_steps.pop(uid)
-            return
+    # --- المستخدم ---
+    if step["step"] == "wait_transfer":
+        transfer_ids[uid] = msg.caption or msg.text or "غير مذكور"
 
-    if step.get("step") == "get_id":
-        balances[uid] -= step['price']
-        bot.send_message(ADMIN_ID, f"🛒 طلب جديد\n👤: `{uid}`\n📦: {step['item']}\n🆔: `{msg.text}`")
-        bot.send_message(uid, "⏳ جارٍ التنفيذ...", reply_markup=main_kb())
-        user_steps.pop(uid)
-
-    elif step.get("step") == "step_recharge":
         kb = types.InlineKeyboardMarkup().add(
             types.InlineKeyboardButton("✅ قبول", callback_data=f"adm_ok:{uid}"),
             types.InlineKeyboardButton("❌ رفض", callback_data=f"adm_no:{uid}")
         )
+
         bot.forward_message(ADMIN_ID, uid, msg.message_id)
-        bot.send_message(ADMIN_ID, f"🔔 شحن من: `{uid}`", reply_markup=kb)
-        bot.send_message(uid, "✅ تم الإرسال، انتظر التفعيل.", reply_markup=main_kb())
+        bot.send_message(
+            ADMIN_ID,
+            f"🔔 طلب شحن جديد\n"
+            f"👤 الاسم: {msg.from_user.first_name}\n"
+            f"🆔 الآيدي: `{uid}`\n"
+            f"🔢 رقم العملية: `{transfer_ids[uid]}`",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+
+        bot.send_message(uid, "⏳ تم استلام طلبك، انتظر المراجعة.", reply_markup=main_kb())
         user_steps.pop(uid)
 
+    # --- الأدمن ---
+    elif uid == ADMIN_ID and step["step"] == "ok_reason":
+        target = step["target"]
+        bot.send_message(
+            target,
+            f"✅ تم قبول الشحن\n"
+            f"💬 السبب: {msg.text}\n"
+            f"🔢 رقم العملية: {transfer_ids.get(target)}"
+        )
+        bot.send_message(ADMIN_ID, "✅ تم الإرسال.")
+        user_steps.pop(uid)
+
+    elif uid == ADMIN_ID and step["step"] == "rej_reason":
+        target = step["target"]
+        bot.send_message(
+            target,
+            f"❌ تم رفض الشحن\n"
+            f"💬 السبب: {msg.text}\n"
+            f"🔢 رقم العملية: {transfer_ids.get(target)}"
+        )
+        bot.send_message(ADMIN_ID, "❌ تم الإرسال.")
+        user_steps.pop(uid)
+
+# --- تشغيل ---
 bot.infinity_polling()
