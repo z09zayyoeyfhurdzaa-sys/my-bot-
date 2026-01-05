@@ -7,7 +7,7 @@ ADMIN_ID = 7557584016
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
 # --- الإعدادات ---
-settings = {"rate": 12000, "cash_num": "0994601295"}
+settings = {"rate": 12000, "cash_num": "62154433"}
 balances = {}  # الرصيد بالليرة
 join_dates = {}  # تاريخ الانضمام
 user_steps = {}
@@ -60,7 +60,8 @@ def handle_all_callbacks(call):
         kb = types.InlineKeyboardMarkup()
         for g in GAMES:
             kb.add(types.InlineKeyboardButton(g, callback_data=f"select_game:{g.replace(':','|')}"))
-        bot.edit_message_text("🕹️ اختر اللعبة:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
+        bot.edit_message_text(اختر لعبتك و نطلق 🕹
+        لعبة:", chat_id=uid, message_id=call.message.message_id, reply_markup=kb)
 
     # التطبيقات
     elif data == "open_apps":
