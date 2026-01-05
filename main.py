@@ -4,70 +4,107 @@ import json
 import os
 
 # --- الإعدادات ---
-TOKEN = "YOUR_NEW_TOKEN_HERE" # استبدل التوكن فوراً!
+TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
 ADMIN_ID = 7557584016
-DB_FILE = "users_data.json"
+DATA_FILE = "bot_data.json"
 
 bot = telebot.TeleBot(TOKEN)
 
-# --- وظائف قاعدة البيانات ---
+# --- إدارة البيانات ---
 def load_data():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"balances": {}, "expenses": {}, "join_dates": {}}
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f: return json.load(f)
+    return {"users": {}, "rate": 15000, "cash_num": "0994601295"}
 
 def save_data(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    with open(DATA_FILE, "w") as f: json.dump(data, f, indent=4)
 
-data = load_data()
-settings = {"rate": 15000, "cash_num": "0994601295"}
+db = load_data()
 
-# --- القوائم (الأزرار) ---
-def main_inline(uid):
+def init_user(uid):
+    uid = str(uid)
+    if uid not in db["users"]:
+        db["users"][uid] = {"bal": 0, "exp": 0}
+        save_data(db)
+
+# --- الأزرار ---
+def main_kb():
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(
-        types.InlineKeyboardButton("🎮 الألعاب", callback_data="open_games"),
-        types.InlineKeyboardButton("📱 التطبيقات", callback_data="open_apps"),
-        types.InlineKeyboardButton("💰 شحن رصيد", callback_data="open_recharge"),
-        types.InlineKeyboardButton("👤 حسابي", callback_data="open_profile")
+        types.InlineKeyboardButton("🎮 الألعاب", callback_data="games"),
+        types.InlineKeyboardButton("💰 شحن رصيد", callback_data="recharge"),
+        types.InlineKeyboardButton("👤 حسابي", callback_data="profile")
     )
-    if uid == ADMIN_ID:
-        kb.add(types.InlineKeyboardButton("⚙️ لوحة الإدارة", callback_data="admin_panel"))
     return kb
 
 # --- المعالجات ---
 @bot.message_handler(commands=["start"])
 def start(message):
-    uid = str(message.chat.id)
-    if uid not in data["balances"]:
-        data["balances"][uid] = 0
-        data["expenses"][uid] = 0
-        data["join_dates"][uid] = message.date
-        save_data(data)
-    
-    bot.send_message(uid, f"✨ أهلاً بك في بوت المطور\nسعر الصرف: {settings['rate']:,} ل.س", 
-                     reply_markup=main_inline(int(uid)))
+    init_user(message.chat.id)
+    bot.send_message(message.chat.id, "Welcome!", reply_markup=main_kb())
 
 @bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
+def handle_calls(call):
     uid = str(call.message.chat.id)
     
-    if call.data == "open_profile":
-        bal = data["balances"].get(uid, 0)
-        exp = data["expenses"].get(uid, 0)
-        text = f"👤 حسابك:\n💰 الرصيد: {bal:,} ل.س\n💸 المصروفات: {exp:,} ل.س"
-        bot.send_message(uid, text)
+    if call.data == "profile":
+        user = db["users"][uid]
+        bot.send_message(uid, f"💰 رصيدك: {user['bal']:,}\n💸 مصروفاتك: {user['exp']:,}")
 
-    elif call.data == "open_recharge":
-        bot.send_message(uid, f"📥 للشحن أرسل للمسؤول:\n`{settings['cash_num']}`")
+    elif call.data == "recharge":
+        bot.send_message(uid, f"أرسل صورة التحويل لرقم الكاش: {db['cash_num']}")
+        bot.register_next_step_handler(call.message, process_recharge)
 
-    elif call.data == "open_games":
+    elif call.data == "games":
+        # مثال لمنتج (60 شدة بـ 15,000 ليرة)
         kb = types.InlineKeyboardMarkup()
-        kb.add(types.InlineKeyboardButton("PUBG Mobile 🔫", callback_data="buy_pubg"))
-        bot.send_message(uid, "اختر اللعبة:", reply_markup=kb)
+        kb.add(types.InlineKeyboardButton("ببجي 60 شدة - 15,000 ل.س", callback_data="buy_pubg_15000"))
+        bot.send_message(uid, "اختر المنتج:", reply_markup=kb)
 
-# تشغيل
-print("البوت يعمل بنجاح...")
+    elif call.data.startswith("buy_"):
+        price = int(call.data.split("_")[-1])
+        if db["users"][uid]["bal"] >= price:
+            db["users"][uid]["bal"] -= price
+            save_data(db)
+            # إرسال طلب للمدير
+            kb = types.InlineKeyboardMarkup()
+            kb.add(
+                types.InlineKeyboardButton("✅ تنفيذ", callback_data=f"adm_ok_{uid}_{price}"),
+                types.InlineKeyboardButton("❌ رفض وإرجاع المال", callback_data=f"adm_no_{uid}_{price}")
+            )
+            bot.send_message(ADMIN_ID, f"طلب شراء من: {uid}\nالمبلغ: {price}", reply_markup=kb)
+            bot.send_message(uid, "تم خصم المبلغ وطلبك قيد المراجعة...")
+        else:
+            bot.send_message(uid, "رصيدك غير كافٍ!")
+
+    # تحكم المدير
+    elif call.data.startswith("adm_"):
+        _, action, target_uid, amount = call.data.split("_")
+        amount = int(amount)
+        if action == "ok":
+            db["users"][target_uid]["exp"] += amount
+            bot.send_message(target_uid, "✅ تم تنفيذ طلبك بنجاح!")
+        else:
+            db["users"][target_uid]["bal"] += amount # إرجاع المال
+            bot.send_message(target_uid, "❌ تم رفض طلبك وإرجاع الرصيد لحسابك.")
+        save_data(db)
+        bot.edit_message_text("تمت المعالجة", ADMIN_ID, call.message.message_id)
+
+def process_recharge(message):
+    if message.content_type == 'photo':
+        bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
+        bot.send_message(ADMIN_ID, f"طلب شحن من الآيدي: `{message.chat.id}`\nلإضافة رصيد استخدم: /add {message.chat.id} المبلغ")
+        bot.send_message(message.chat.id, "تم إرسال الصورة للإدارة.")
+    else:
+        bot.send_message(message.chat.id, "يرجى إرسال صورة فقط.")
+
+@bot.message_handler(commands=["add"])
+def add_bal(message):
+    if message.chat.id == ADMIN_ID:
+        parts = message.text.split()
+        target, amount = parts[1], int(parts[2])
+        db["users"][target]["bal"] += amount
+        save_data(db)
+        bot.send_message(target, f"✅ تم إضافة {amount:,} ل.س إلى رصيدك.")
+
 bot.infinity_polling()
