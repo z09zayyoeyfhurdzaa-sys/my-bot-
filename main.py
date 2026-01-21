@@ -3,8 +3,8 @@ from telebot import types
 import json, os
 from datetime import datetime
 
-# --- الإعدادات الجديدة ---
-TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
+# --- الإعدادات ---
+TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU" # التوكن المستخرج من الصورة
 ADMIN_ID = 7557584016
 DATA_FILE = "bot_database.json"
 
@@ -68,11 +68,13 @@ def handle_calls(call):
         bot.register_next_step_handler(msg, handle_recharge_data)
 
     elif "adm_ok_" in call.data:
-        _, _, target_uid, amount = call.data.split("_")
-        db["users"][target_uid]["bal"] += int(amount)
-        save_data(db)
-        bot.send_message(target_uid, f"✅ تم شحن {amount} لرصيدك.")
-        bot.edit_message_text(f"✅ تم الشحن لـ {target_uid}", ADMIN_ID, mid)
+        data = call.data.split("_")
+        target_uid, amount = data[2], data[3]
+        if target_uid in db["users"]:
+            db["users"][target_uid]["bal"] += int(amount)
+            save_data(db)
+            bot.send_message(target_uid, f"✅ تم شحن {amount} لرصيدك.")
+            bot.edit_message_text(f"✅ تم الشحن لـ {target_uid}", ADMIN_ID, mid)
 
     elif "adm_reject_" in call.data:
         target_uid = call.data.split("_")[2]
