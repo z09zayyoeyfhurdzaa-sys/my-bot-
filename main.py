@@ -6,7 +6,7 @@ from datetime import datetime
 # --- الإعدادات ---
 TOKEN = "8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
 ADMIN_ID = 7557584016
-DATA_FILE = "bot_database.json"
+DATA_FILE =8372753026:AAG7SJLu_FkLrz-MzPJXNNE4D_5hyemyLlU"
 
 bot = telebot.TeleBot(TOKEN)
 
