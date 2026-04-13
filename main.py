@@ -3,7 +3,7 @@ from telebot import types
 import json, os
 
 # --- الإعدادات الصحيحة من صورك ---
-TOKEN = "8372753026:AAHQ3k9hEkJqVJK2kGATb5wTZHgHjUim9HM"
+TOKEN = "8372753026:AAGXQsoqwWgWb_TAO8nAyvPkN_lzbWosZ0U"
 ADMIN_ID = 7557584016
 DATA_FILE = "bot_database.json"
 
